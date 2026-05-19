@@ -1,0 +1,12 @@
+[database]
+studio-database ansible_host=192.168.56.11
+
+[backend]
+studio-backend ansible_host=192.168.56.10
+
+[frontend]
+studio-frontend ansible_host=192.168.56.12
+
+[all:vars]
+ansible_user=vagrant
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'

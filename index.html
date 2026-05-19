@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Melodia Space</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:Arial;
+}
+
+body{
+background:
+linear-gradient(rgba(15,23,42,0.85),rgba(15,23,42,0.85)),
+url('https://images.unsplash.com/photo-1511379938547-c1f69419868d?q=80&w=1920&auto=format&fit=crop');
+
+background-size:cover;
+background-position:center;
+
+min-height:100vh;
+padding:40px;
+color:white;
+}
+
+.container{
+max-width:1200px;
+margin:auto;
+}
+
+.header{
+text-align:center;
+margin-bottom:40px;
+}
+
+.music-icons{
+display:flex;
+justify-content:center;
+gap:20px;
+font-size:50px;
+margin-bottom:20px;
+}
+
+.header h1{
+font-size:45px;
+margin-bottom:10px;
+}
+
+.header p{
+opacity:0.9;
+font-size:18px;
+}
+
+.grid{
+display:grid;
+grid-template-columns:1fr 1.4fr;
+gap:25px;
+}
+
+.card{
+background:rgba(255,255,255,0.95);
+color:black;
+padding:25px;
+border-radius:20px;
+backdrop-filter:blur(10px);
+box-shadow:0 15px 35px rgba(0,0,0,0.3);
+}
+
+.card h2{
+margin-bottom:20px;
+font-size:24px;
+}
+
+input,select{
+width:100%;
+padding:14px;
+margin-top:12px;
+border-radius:12px;
+border:1px solid #dcdde1;
+font-size:15px;
+outline:none;
+}
+
+button{
+padding:14px;
+border:none;
+border-radius:12px;
+cursor:pointer;
+font-size:15px;
+font-weight:bold;
+transition:0.3s;
+}
+
+.btn-book{
+background:#2563eb;
+color:white;
+width:100%;
+margin-top:15px;
+}
+
+.btn-book:hover{
+background:#1d4ed8;
+}
+
+.btn-delete{
+background:#dc2626;
+color:white;
+padding:10px 14px;
+}
+
+.btn-delete:hover{
+background:#b91c1c;
+}
+
+.success{
+background:#16a34a;
+padding:14px;
+border-radius:12px;
+margin-top:15px;
+display:none;
+color:white;
+}
+
+.error{
+background:#dc2626;
+padding:14px;
+border-radius:12px;
+margin-top:15px;
+display:none;
+color:white;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:10px;
+}
+
+th{
+background:#1e293b;
+color:white;
+padding:15px;
+}
+
+td{
+padding:14px;
+text-align:center;
+border-bottom:1px solid #e5e7eb;
+}
+
+.badge{
+padding:7px 12px;
+border-radius:999px;
+font-size:13px;
+font-weight:bold;
+}
+
+.lunas{
+background:#dcfce7;
+color:#166534;
+}
+
+.belum{
+background:#fee2e2;
+color:#991b1b;
+}
+
+@media(max-width:900px){
+
+.grid{
+grid-template-columns:1fr;
+}
+
+body{
+padding:20px;
+}
+
+.header h1{
+font-size:34px;
+}
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">
+
+<div class="music-icons">
+🎸 🎹 🥁 🎤
+</div>
+
+<h1>Booking Studio Musik Melodia Space</h1>
+
+<p>
+Sistem Booking Studio Musik Berbasis Cloud Computing
+</p>
+
+</div>
+
+<div class="grid">
+
+<div class="card">
+
+<h2>Form Booking</h2>
+
+<input type="text" id="nama" placeholder="Masukkan Nama">
+
+<input type="date" id="tanggal">
+
+<input type="text" id="jam" placeholder="Contoh: 19:00">
+
+<select id="studio">
+
+<option>Studio A</option>
+<option>Studio B</option>
+<option>Studio C</option>
+
+</select>
+
+<select id="metode_bayar">
+
+<option>E-Wallet</option>
+<option>Transfer Bank</option>
+<option>Cash</option>
+
+</select>
+
+<button class="btn-book" onclick="booking()">
+Booking Sekarang
+</button>
+
+<div class="success" id="successBox"></div>
+
+<div class="error" id="errorBox"></div>
+
+</div>
+
+<div class="card">
+
+<h2>Riwayat Booking</h2>
+
+<table>
+
+<thead>
+
+<tr>
+
+<th>Nama</th>
+<th>Tanggal</th>
+<th>Jam</th>
+<th>Studio</th>
+<th>Pembayaran</th>
+<th>Status</th>
+<th>Aksi</th>
+
+</tr>
+
+</thead>
+
+<tbody id="hasil"></tbody>
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+const api = '/api/booking';
+
+function showSuccess(msg){
+
+const box = document.getElementById('successBox');
+
+box.style.display='block';
+
+box.innerHTML=msg;
+
+setTimeout(()=>{
+box.style.display='none';
+},3000);
+
+}
+
+function showError(msg){
+
+const box = document.getElementById('errorBox');
+
+box.style.display='block';
+
+box.innerHTML=msg;
+
+setTimeout(()=>{
+box.style.display='none';
+},3000);
+
+}
+
+function loadData(){
+
+fetch(api)
+
+.then(res => res.json())
+
+.then(data => {
+
+let rows='';
+
+data.forEach(item => {
+
+let statusClass='belum';
+
+if(item.status_bayar == 'Lunas'){
+statusClass='lunas';
+}
+
+rows += `
+<tr>
+
+<td>${item.nama}</td>
+<td>${item.tanggal}</td>
+<td>${item.jam}</td>
+<td>${item.studio}</td>
+<td>${item.metode_bayar ?? '-'}</td>
+
+<td>
+<span class="badge ${statusClass}">
+${item.status_bayar ?? '-'}
+</span>
+</td>
+
+<td>
+
+<button
+class="btn-delete"
+onclick="hapus(${item.id})">
+
+Batal
+
+</button>
+
+</td>
+
+</tr>
+`;
+
+});
+
+document.getElementById('hasil').innerHTML = rows;
+
+})
+
+.catch(err => {
+
+showError('Backend tidak terhubung');
+
+console.log(err);
+
+});
+
+}
+
+function booking(){
+
+const data = {
+
+nama: document.getElementById('nama').value,
+tanggal: document.getElementById('tanggal').value,
+jam: document.getElementById('jam').value,
+studio: document.getElementById('studio').value,
+metode_bayar: document.getElementById('metode_bayar').value
+
+};
+
+fetch(api, {
+
+method:'POST',
+
+headers:{
+'Content-Type':'application/json'
+},
+
+body:JSON.stringify(data)
+
+})
+
+.then(async res => {
+
+const hasil = await res.json();
+
+if(!res.ok){
+
+showError(hasil.message);
+
+return;
+
+}
+
+showSuccess(hasil.message);
+
+loadData();
+
+})
+
+.catch(err => {
+
+showError('Backend tidak terhubung');
+
+console.log(err);
+
+});
+
+}
+
+function hapus(id){
+
+if(confirm('Yakin ingin membatalkan booking?')){
+
+fetch(api + '/' + id, {
+
+method:'DELETE'
+
+})
+
+.then(res => res.json())
+
+.then(response => {
+
+showSuccess(response.message);
+
+loadData();
+
+});
+
+}
+
+}
+
+loadData();
+
+</script>
+
+</body>
+</html>

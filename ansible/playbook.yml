@@ -1,0 +1,285 @@
+---
+- hosts: localhost
+  connection: local
+  become: yes
+
+  tasks:
+
+    - name: Update apt
+      apt:
+        update_cache: yes
+
+    - name: Install packages
+      apt:
+        name:
+          - mysql-server
+          - python3-pymysql
+          - python3-pip
+          - python3-flask
+          - python3-flask-cors
+          - python3-mysqldb
+          - nginx
+        state: present
+
+    - name: Start mysql
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Create database
+      shell: |
+        mysql -e "CREATE DATABASE IF NOT EXISTS db_studio;"
+
+    - name: Create table
+      shell: |
+        mysql db_studio -e "
+        CREATE TABLE IF NOT EXISTS booking (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nama VARCHAR(100),
+        tanggal DATE,
+        jam VARCHAR(20),
+        studio VARCHAR(50)
+        );
+        "
+
+    - name: Create flask app
+      copy:
+        dest: /home/vagrant/app.py
+        content: |
+
+          from flask import Flask, request, jsonify
+          from flask_cors import CORS
+          import MySQLdb
+
+          app = Flask(__name__)
+          CORS(app)
+
+          db = MySQLdb.connect(
+              host="localhost",
+              user="root",
+              passwd="",
+              db="db_studio"
+          )
+
+          @app.route('/api/booking', methods=['GET'])
+          def get_booking():
+
+              cur = db.cursor()
+
+              cur.execute("SELECT * FROM booking")
+
+              data = cur.fetchall()
+
+              hasil = []
+
+              for x in data:
+                  hasil.append({
+                      "id": x[0],
+                      "nama": x[1],
+                      "tanggal": str(x[2]),
+                      "jam": x[3],
+                      "studio": x[4]
+                  })
+
+              return jsonify(hasil)
+
+          @app.route('/api/booking', methods=['POST'])
+          def add_booking():
+
+              data = request.json
+
+              cur = db.cursor()
+
+              cur.execute(
+                  "INSERT INTO booking (nama,tanggal,jam,studio) VALUES (%s,%s,%s,%s)",
+                  (
+                      data['nama'],
+                      data['tanggal'],
+                      data['jam'],
+                      data['studio']
+                  )
+              )
+
+              db.commit()
+
+              return jsonify({"message":"Booking berhasil"})
+
+          app.run(host='0.0.0.0', port=5000)
+
+    - name: Run flask
+      shell: nohup python3 /home/vagrant/app.py > /dev/null 2>&1 &
+
+    - name: Create web
+      copy:
+        dest: /var/www/html/index.html
+        content: |
+
+          <!DOCTYPE html>
+          <html>
+
+          <head>
+
+          <title>Booking Studio Musik</title>
+
+          <style>
+
+          body{
+            font-family:Arial;
+            background:#f2f2f2;
+            padding:20px;
+          }
+
+          .box{
+            background:white;
+            max-width:700px;
+            margin:auto;
+            padding:20px;
+            border-radius:10px;
+          }
+
+          input,select,button{
+            width:100%;
+            padding:10px;
+            margin-top:10px;
+          }
+
+          table{
+            width:100%;
+            margin-top:20px;
+            border-collapse:collapse;
+          }
+
+          td,th{
+            border:1px solid #ddd;
+            padding:10px;
+          }
+
+          button{
+            background:green;
+            color:white;
+            border:none;
+          }
+
+          </style>
+
+          </head>
+
+          <body>
+
+          <div class="box">
+
+          <h2>Booking Studio Musik</h2>
+
+          <input type="text" id="nama" placeholder="Nama">
+
+          <input type="date" id="tanggal">
+
+          <input type="text" id="jam" placeholder="Jam Booking">
+
+          <select id="studio">
+
+            <option>Studio A</option>
+            <option>Studio B</option>
+            <option>Studio C</option>
+
+          </select>
+
+          <button onclick="booking()">
+          Booking Sekarang
+          </button>
+
+          <table>
+
+          <thead>
+          <tr>
+          <th>Nama</th>
+          <th>Tanggal</th>
+          <th>Jam</th>
+          <th>Studio</th>
+          </tr>
+          </thead>
+
+          <tbody id="hasil"></tbody>
+
+          </table>
+
+          </div>
+
+          <script>
+
+          const api = 'http://192.168.56.10:5000/api/booking';
+
+          function loadData(){
+
+            fetch(api)
+            .then(r=>r.json())
+            .then(data=>{
+
+              let isi='';
+
+              data.forEach(item=>{
+
+                isi += `
+                <tr>
+                <td>${item.nama}</td>
+                <td>${item.tanggal}</td>
+                <td>${item.jam}</td>
+                <td>${item.studio}</td>
+                </tr>
+                `;
+
+              });
+
+              document.getElementById('hasil').innerHTML = isi;
+
+            });
+
+          }
+
+          function booking(){
+
+            const data = {
+
+              nama:document.getElementById('nama').value,
+              tanggal:document.getElementById('tanggal').value,
+              jam:document.getElementById('jam').value,
+              studio:document.getElementById('studio').value
+
+            };
+
+            fetch(api,{
+
+              method:'POST',
+
+              headers:{
+                'Content-Type':'application/json'
+              },
+
+              body:JSON.stringify(data)
+
+            })
+
+            .then(()=>{
+
+              alert('Booking berhasil');
+
+              loadData();
+
+            });
+
+          }
+
+          loadData();
+
+          </script>
+
+          </body>
+
+          </html>
+
+    - name: Start nginx
+      service:
+        name: nginx
+        state: started
+        enabled: yes
