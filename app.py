@@ -1,40 +1,52 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import MySQLdb
+import sqlite3
 
 app = Flask(__name__)
 CORS(app)
 
-db = MySQLdb.connect(
-    host="localhost",
-    user="vagrant",
-    passwd="vagrant",
-    db="db_studio"
+def connect_db():
+    conn = sqlite3.connect('studio.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+conn = connect_db()
+
+conn.execute("""
+CREATE TABLE IF NOT EXISTS booking (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nama TEXT,
+    tanggal TEXT,
+    jam TEXT,
+    studio TEXT,
+    metode_bayar TEXT,
+    status_bayar TEXT
 )
+""")
+
+conn.commit()
 
 @app.route('/api/booking', methods=['GET'])
 def get_booking():
 
-    cur = db.cursor()
+    conn = connect_db()
 
-    cur.execute("SELECT * FROM booking ORDER BY id DESC")
-
-    data = cur.fetchall()
+    data = conn.execute(
+        "SELECT * FROM booking ORDER BY id DESC"
+    ).fetchall()
 
     hasil = []
 
     for x in data:
 
         hasil.append({
-
-            "id": x[0],
-            "nama": x[1],
-            "tanggal": str(x[2]),
-            "jam": x[3],
-            "studio": x[4],
-            "metode_bayar": x[5],
-            "status_bayar": x[6]
-
+            "id": x["id"],
+            "nama": x["nama"],
+            "tanggal": x["tanggal"],
+            "jam": x["jam"],
+            "studio": x["studio"],
+            "metode_bayar": x["metode_bayar"],
+            "status_bayar": x["status_bayar"]
         })
 
     return jsonify(hasil)
@@ -44,23 +56,21 @@ def add_booking():
 
     data = request.json
 
-    cur = db.cursor()
+    conn = connect_db()
 
-    cur.execute(
+    cek = conn.execute(
         """
         SELECT * FROM booking
-        WHERE tanggal=%s
-        AND jam=%s
-        AND studio=%s
+        WHERE tanggal=?
+        AND jam=?
+        AND studio=?
         """,
         (
             data['tanggal'],
             data['jam'],
             data['studio']
         )
-    )
-
-    cek = cur.fetchone()
+    ).fetchone()
 
     if cek:
 
@@ -73,7 +83,7 @@ def add_booking():
     if data['metode_bayar'] != "Cash":
         status = "Lunas"
 
-    cur.execute(
+    conn.execute(
         """
         INSERT INTO booking
         (
@@ -84,7 +94,7 @@ def add_booking():
         metode_bayar,
         status_bayar
         )
-        VALUES (%s,%s,%s,%s,%s,%s)
+        VALUES (?,?,?,?,?,?)
         """,
         (
             data['nama'],
@@ -96,7 +106,7 @@ def add_booking():
         )
     )
 
-    db.commit()
+    conn.commit()
 
     return jsonify({
         "message":"Booking berhasil"
@@ -105,20 +115,18 @@ def add_booking():
 @app.route('/api/booking/<int:id>', methods=['DELETE'])
 def hapus_booking(id):
 
-    cur = db.cursor()
+    conn = connect_db()
 
-    cur.execute(
-        "DELETE FROM booking WHERE id=%s",
+    conn.execute(
+        "DELETE FROM booking WHERE id=?",
         (id,)
     )
 
-    db.commit()
+    conn.commit()
 
     return jsonify({
         "message":"Booking dibatalkan"
     })
 
-app.run(
-    host='0.0.0.0',
-    port=5000
-)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
